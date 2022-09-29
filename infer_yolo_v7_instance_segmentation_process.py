@@ -245,6 +245,7 @@ class InferYoloV7InstanceSegmentationFactory(dataprocess.CTaskFactory):
         self.info.description = "Inference for YOLO v7 instance segmentation models"
         # relative path -> as displayed in Ikomia application process tree
         self.info.path = "Plugins/Python/Instance Segmentation"
+        self.info.iconPath = "icons/yolov7.png"
         self.info.version = "1.0.0"
         # self.info.iconPath = "your path to a specific icon"
         self.info.authors = "Wang, Chien-Yao and Bochkovskiy, Alexey and Liao, Hong-Yuan Mark"
