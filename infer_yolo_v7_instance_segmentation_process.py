@@ -32,8 +32,6 @@ from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.segment.general import
 import numpy as np
 import random
 import yaml
-import cv2
-import torch.nn.functional as F
 
 
 # --------------------
