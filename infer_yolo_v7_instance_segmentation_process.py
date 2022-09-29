@@ -99,9 +99,6 @@ class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
         self.iou_conf = 0.45
         self.classes = None
         self.colors = None
-        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                               "yolov7", "seg", "data", "hyps", "hyp.scratch-low.yaml")) as f:
-            self.hyp = yaml.unsafe_load(f)
 
         # Create parameters class
         if param is None:
