@@ -5,8 +5,7 @@ import wandb
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[3]  # YOLOv5 root directory
-if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))  # add ROOT to PATH
+
 
 from infer_yolo_v7_instance_segmentation.yolov7.seg.segment.train import parse_opt, train
 from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.callbacks import Callbacks

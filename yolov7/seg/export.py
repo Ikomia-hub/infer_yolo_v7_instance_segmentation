@@ -59,17 +59,16 @@ from torch.utils.mobile_optimizer import optimize_for_mobile
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLOv5 root directory
-if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))  # add ROOT to PATH
+
 if platform.system() != 'Windows':
     ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
-from models.experimental import attempt_load
-from models.yolo import Detect
-from utils.dataloaders import LoadImages
-from utils.general import (LOGGER, Profile, check_dataset, check_img_size, check_requirements, check_version,
+from infer_yolo_v7_instance_segmentation.yolov7.seg.models.experimental import attempt_load
+from infer_yolo_v7_instance_segmentation.yolov7.seg.models.yolo import Detect
+from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.dataloaders import LoadImages
+from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.general import (LOGGER, Profile, check_dataset, check_img_size, check_requirements, check_version,
                            check_yaml, colorstr, file_size, get_default_args, print_args, url2file)
-from utils.torch_utils import select_device, smart_inference_mode
+from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.torch_utils import select_device, smart_inference_mode
 
 
 def export_formats():
@@ -298,7 +297,7 @@ def export_saved_model(model,
     import tensorflow as tf
     from tensorflow.python.framework.convert_to_constants import convert_variables_to_constants_v2
 
-    from models.tf import TFModel
+    from infer_yolo_v7_instance_segmentation.yolov7.seg.models.tf import TFModel
 
     LOGGER.info(f'\n{prefix} starting export with tensorflow {tf.__version__}...')
     f = str(file).replace('.pt', '_saved_model')
@@ -360,7 +359,7 @@ def export_tflite(keras_model, im, file, int8, data, nms, agnostic_nms, prefix=c
     converter.target_spec.supported_types = [tf.float16]
     converter.optimizations = [tf.lite.Optimize.DEFAULT]
     if int8:
-        from models.tf import representative_dataset_gen
+        from infer_yolo_v7_instance_segmentation.yolov7.seg.models.tf import representative_dataset_gen
         dataset = LoadImages(check_dataset(check_yaml(data))['train'], img_size=imgsz, auto=False)
         converter.representative_dataset = lambda: representative_dataset_gen(dataset, ncalib=100)
         converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]

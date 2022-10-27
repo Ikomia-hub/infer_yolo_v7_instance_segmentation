@@ -32,15 +32,14 @@ from tqdm import tqdm
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[1]  # YOLOv5 root directory
-if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))  # add ROOT to PATH
+
 ROOT = Path(os.path.relpath(ROOT, Path.cwd()))  # relative
 
-from classify import val as validate
-from models.experimental import attempt_load
-from models.yolo import ClassificationModel, DetectionModel
-from utils.dataloaders import create_classification_dataloader
-from utils.general import (DATASETS_DIR, LOGGER, WorkingDirectory, check_git_status, check_requirements, colorstr,
+from infer_yolo_v7_instance_segmentation.yolov7.seg.classify import val as validate
+from infer_yolo_v7_instance_segmentation.yolov7.seg.models.experimental import attempt_load
+from infer_yolo_v7_instance_segmentation.yolov7.seg.models.yolo import ClassificationModel, DetectionModel
+from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.dataloaders import create_classification_dataloader
+from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.general import (DATASETS_DIR, LOGGER, WorkingDirectory, check_git_status, check_requirements, colorstr,
                            download, increment_path, init_seeds, print_args, yaml_save)
 from utils.loggers import GenericLogger
 from utils.plots import imshow_cls

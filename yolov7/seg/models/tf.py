@@ -17,8 +17,7 @@ from pathlib import Path
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[1]  # YOLOv5 root directory
-if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))  # add ROOT to PATH
+
 # ROOT = ROOT.relative_to(Path.cwd())  # relative
 
 import numpy as np
@@ -27,12 +26,12 @@ import torch
 import torch.nn as nn
 from tensorflow import keras
 
-from models.common import (C3, SPP, SPPF, Bottleneck, BottleneckCSP, C3x, Concat, Conv, CrossConv, DWConv,
+from infer_yolo_v7_instance_segmentation.yolov7.seg.models.common import (C3, SPP, SPPF, Bottleneck, BottleneckCSP, C3x, Concat, Conv, CrossConv, DWConv,
                            DWConvTranspose2d, Focus, autopad)
-from models.experimental import MixConv2d, attempt_load
-from models.yolo import Detect
-from utils.activations import SiLU
-from utils.general import LOGGER, make_divisible, print_args
+from infer_yolo_v7_instance_segmentation.yolov7.seg.models.experimental import MixConv2d, attempt_load
+from infer_yolo_v7_instance_segmentation.yolov7.seg.models.yolo import Detect
+from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.activations import SiLU
+from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.general import LOGGER, make_divisible, print_args
 
 
 class TFBN(keras.layers.Layer):

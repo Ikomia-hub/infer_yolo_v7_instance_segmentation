@@ -28,12 +28,12 @@ def _create(name, pretrained=True, channels=3, classes=80, autoshape=True, verbo
     """
     from pathlib import Path
 
-    from models.common import AutoShape, DetectMultiBackend
-    from models.experimental import attempt_load
-    from models.yolo import ClassificationModel, DetectionModel
-    from utils.downloads import attempt_download
-    from utils.general import LOGGER, check_requirements, intersect_dicts, logging
-    from utils.torch_utils import select_device
+    from infer_yolo_v7_instance_segmentation.yolov7.seg.models.common import AutoShape, DetectMultiBackend
+    from infer_yolo_v7_instance_segmentation.yolov7.seg.models.experimental import attempt_load
+    from infer_yolo_v7_instance_segmentation.yolov7.seg.models.yolo import ClassificationModel, DetectionModel
+    from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.downloads import attempt_download
+    from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.general import LOGGER, check_requirements, intersect_dicts, logging
+    from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.torch_utils import select_device
 
     if not verbose:
         LOGGER.setLevel(logging.WARNING)
