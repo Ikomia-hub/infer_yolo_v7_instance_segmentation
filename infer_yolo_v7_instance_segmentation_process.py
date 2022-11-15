@@ -24,11 +24,11 @@ import torch
 from infer_yolo_v7_instance_segmentation.yolov7.seg.models.experimental import attempt_load
 from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.dataloaders import letterbox
 from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.general import check_img_size, non_max_suppression, \
-    scale_coords, \
-    xyxy2xywh
+    scale_coords, xyxy2xywh, clip_coords
 from infer_yolo_v7_instance_segmentation.yolov7.seg.models.yolo import Model
 from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.torch_utils import torch_load
-from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.segment.general import process_mask, scale_masks
+from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.segment.general import process_mask, scale_masks, \
+    process_mask_upsample
 import numpy as np
 import random
 import yaml
@@ -115,6 +115,7 @@ class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
         h, w = np.shape(img0)[:2]
         # Padded resize
         img = letterbox(img0, self.imgsz, stride=self.stride)[0]
+        in_size = img.shape
         # Convert
         img = img.transpose(2, 0, 1)  # HxWxC, to CxHxW
         img = np.ascontiguousarray(img)
@@ -133,8 +134,15 @@ class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
         for i, det in enumerate(pred):  # per image
             if len(det):
                 # Rescale boxes from img_size to im0 size
+
+                masks = process_mask_upsample(proto[i], det[:, 6:], det[:, :4], img.shape[-2:])  # HWC
+                masks = masks.permute(1, 2, 0).detach().cpu().numpy()
+                masks = scale_masks(img.shape[-2:], masks, img0.shape, ratio_pad=None)
+                masks = np.transpose(masks, (2, 0, 1))
+
                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], (h, w)).round()
-                masks = process_mask(proto[i], det[:, 6:], det[:, :4], (h, w), upsample=True)  # HWC
+
+                det = det.detach().cpu().numpy()
 
                 for j, (mask, bbox_cls) in enumerate(zip(masks, det)):
                     cls = int(bbox_cls[5])
@@ -144,8 +152,7 @@ class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
                     y_obj = float(y_obj)
                     h_obj = float(h_obj) - y_obj
                     w_obj = float(w_obj) - x_obj
-                    mask = mask.detach().cpu().numpy().astype(dtype='uint8')
-
+                    mask = mask.astype(dtype='uint8')
                     self.inst_seg_output.addInstance((i + 1) * j, 0, cls, self.classes[cls], conf, x_obj, y_obj,
                                                      w_obj, h_obj, mask,
                                                      self.colors[cls])
