@@ -224,6 +224,7 @@ class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
         with torch.no_grad():
             self.infer(srcImage)
 
+        self.setOutputColorMap(0, 1, [[0, 0, 0]] + self.colors)
         # Step progress bar:
         self.emitStepProgress()
 
