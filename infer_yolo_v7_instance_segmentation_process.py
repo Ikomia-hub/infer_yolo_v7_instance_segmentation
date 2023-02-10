@@ -19,19 +19,17 @@
 from ikomia import utils, core, dataprocess
 import copy
 import os
-from infer_yolo_v7_instance_segmentation.ikutils import download_model, clamp
-import torch
-from infer_yolo_v7_instance_segmentation.yolov7.seg.models.experimental import attempt_load
-from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.dataloaders import letterbox
 from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.general import check_img_size, non_max_suppression, \
-    scale_coords, xyxy2xywh, clip_coords
-from infer_yolo_v7_instance_segmentation.yolov7.seg.models.yolo import Model
-from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.torch_utils import torch_load
-from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.segment.general import process_mask, scale_masks, \
+    scale_coords
+from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.segment.general import scale_masks, \
     process_mask_upsample
+from infer_yolo_v7.ikutils import letterbox_costum
+import torch
 import numpy as np
 import random
 import yaml
+import onnxruntime as ort
+import cv2
 
 
 # --------------------
@@ -43,38 +41,26 @@ class InferYoloV7InstanceSegmentationParam(core.CWorkflowTaskParam):
     def __init__(self):
         core.CWorkflowTaskParam.__init__(self)
         # Place default value initialization here
-        self.img_size = 640
-        self.custom_train = False
-        self.pretrain_model = 'yolov7-seg'
-        self.cuda = torch.cuda.is_available()
+        self.weights = ""
         self.thr_conf = 0.25
         self.iou_conf = 0.5
-        self.custom_model = ""
         self.update = False
 
     def setParamMap(self, param_map):
         # Set parameters values from Ikomia application
         # Parameters values are stored as string and accessible like a python dict
-        self.img_size = int(param_map["img_size"])
-        self.custom_train = utils.strtobool(param_map["custom_train"])
-        self.pretrain_model = str(param_map["pretrain_model"])
-        self.cuda = utils.strtobool(param_map["cuda"])
+        self.weights = str(param_map["weights"])
         self.thr_conf = float(param_map["thr_conf"])
         self.iou_conf = float(param_map["iou_conf"])
-        self.custom_model = param_map["custom_model"]
         self.update = True
 
     def getParamMap(self):
         # Send parameters values to Ikomia application
         # Create the specific dict structure (string container)
         param_map = core.ParamMap()
-        param_map["custom_train"] = str(self.custom_train)
-        param_map["img_size"] = str(self.img_size)
-        param_map['pretrain_model'] = str(self.pretrain_model)
+        param_map["weights"] = str(self.weights)
         param_map["thr_conf"] = str(self.thr_conf)
         param_map["iou_conf"] = str(self.iou_conf)
-        param_map["cuda"] = str(self.cuda)
-        param_map["custom_model"] = str(self.custom_model)
         return param_map
 
 
@@ -90,15 +76,19 @@ class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
         self.addOutput(dataprocess.CInstanceSegIO())
 
         self.inst_seg_output = None
-        self.model = None
         self.weights = ""
         self.device = torch.device("cpu")
+        self.session = None
         self.stride = 32
         self.imgsz = 640
         self.thr_conf = 0.25
         self.iou_conf = 0.45
         self.classes = None
         self.colors = None
+        self.providers = ['CPUExecutionProvider']
+        self.coco_data =  os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                                        "yolov7", "seg", 
+                                                        "data", "coco_info.yaml")
 
         # Create parameters class
         if param is None:
@@ -112,36 +102,49 @@ class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
         return 1
 
     def infer(self, img0):
-        h, w = np.shape(img0)[:2]
+        # Get parameters :
+        param = self.getParam()
         # Padded resize
-        img = letterbox(img0, self.imgsz, stride=self.stride)[0]
-        in_size = img.shape
+        h, w = np.shape(img0)[:2]
+        img = cv2.cvtColor(img0, cv2.COLOR_BGR2RGB)
+        img, ratio, dwdh = letterbox_costum(img, auto=False)
+
         # Convert
         img = img.transpose(2, 0, 1)  # HxWxC, to CxHxW
+        img = np.expand_dims(img, 0)
         img = np.ascontiguousarray(img)
-        img = torch.from_numpy(img).to(self.device)
-        img = img.half() if self.device.type == 'cuda' else img.float()  # uint8 to fp16/32
+        img = img.astype(np.float32)
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
-        if img.ndimension() == 3:
-            img = img.unsqueeze(0)
 
-        pred, out = self.model(img)
-        proto = out[1]
-        # number of masks
+        output_names = [x.name for x in self.session.get_outputs()]
+
+        y = self.session.run(output_names, {self.session.get_inputs()[0].name: img})
+
+        pred, *others, proto = [torch.tensor(i, device="cpu") for i in y] # return to torch
+        y = (pred, (others, proto))
+
         nm = pred.shape[-1] - 5 - len(self.classes)
-        pred = non_max_suppression(pred, self.thr_conf, self.iou_conf, None, False, max_det=100, nm=nm)
 
+        pred = non_max_suppression(pred, 
+                                   self.thr_conf,
+                                   self.iou_conf,
+                                   None,
+                                   False,
+                                   max_det=100,
+                                   nm=nm)
+  
         for i, det in enumerate(pred):  # per image
             if len(det):
                 # Rescale boxes from img_size to im0 size
-
-                masks = process_mask_upsample(proto[i], det[:, 6:], det[:, :4], img.shape[-2:])  # HWC
+                masks = process_mask_upsample(proto[i],
+                                              det[:, 6:],
+                                              det[:, :4],
+                                              img.shape[-2:])  # HWC
                 masks = masks.permute(1, 2, 0).detach().cpu().numpy()
                 masks = scale_masks(img.shape[-2:], masks, img0.shape, ratio_pad=None)
                 masks = np.transpose(masks, (2, 0, 1))
 
                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], (h, w)).round()
-
                 det = det.detach().cpu().numpy()
 
                 for j, (mask, bbox_cls) in enumerate(zip(masks, det)):
@@ -153,78 +156,40 @@ class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
                     h_obj = float(h_obj) - y_obj
                     w_obj = float(w_obj) - x_obj
                     mask = mask.astype(dtype='uint8')
-                    self.inst_seg_output.addInstance((i + 1) * j, 0, cls, self.classes[cls], conf, x_obj, y_obj,
+                    self.inst_seg_output.addInstance((i + 1) * j, 0, cls,
+                                                     self.classes[cls],
+                                                     conf, x_obj, y_obj,
                                                      w_obj, h_obj, mask,
                                                      self.colors[cls])
 
     def run(self):
-        # Core function of your process
         # Call beginTaskRun for initialization
         self.beginTaskRun()
-
         # Get input :
         input = self.getInput(0)
-
         # Get image from input/output (numpy array):
         srcImage = input.getImage()
-
         # Get outputs :
         self.inst_seg_output = self.getOutput(1)
         h, w = np.shape(srcImage)[:2]
         self.inst_seg_output.init("YoloV7", 0, w, h)
-
         # Forward input image
         self.forwardInputImage(0, 0)
         # Get parameters :
         param = self.getParam()
 
-        if param.update or self.model is None:
-            self.device = torch.device("cuda") if param.cuda else torch.device("cpu")
-            self.iou_conf = param.iou_conf
-            self.thr_conf = param.thr_conf
+        with open(self.coco_data) as f:
+            data = yaml.load(f, Loader=yaml.FullLoader)
+            names = data["names"]
+
+        if param.update or self.session is None:
+            self.device = torch.device("cpu")
             print("Will run on {}".format(self.device.type))
-
-            if param.custom_train:
-                ckpt = torch_load(param.custom_model, device=self.device)
-                # custom model trained with ikomia
-                if "yaml" in ckpt:
-                    cfg = ckpt["yaml"]
-                    self.classes = ckpt["names"]
-                    state_dict = ckpt["state_dict"]
-                    self.model = Model(cfg=cfg, ch=3, nc=len(self.classes), anchors=None)
-                    self.model.load_state_dict(state_dict)
-                    self.model.float().fuse().eval().to(self.device)
-                    del ckpt
-                # other
-                else:
-                    del ckpt
-                    self.model = attempt_load(param.custom_model, device=self.device, fuse=True)  # load FP32 model
-                    self.classes = self.model.names
-            else:
-                weights_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "weights")
-                if not os.path.isdir(weights_folder):
-                    os.mkdir(weights_folder)
-
-                self.weights = os.path.join(weights_folder, param.pretrain_model + '.pt')
-                if not os.path.isfile(self.weights):
-                    download_model(param.pretrain_model, weights_folder)
-
-                self.model = attempt_load(self.weights, device=self.device, fuse=True)  # load FP32 model
-                self.classes = self.model.names
+            self.session = ort.InferenceSession(param.weights, providers=self.providers)
+            self.classes = names
             random.seed(0)
             self.colors = [[random.randint(0, 255) for _ in range(3)] for _ in self.classes]
-
-            self.stride = int(self.model.stride.max())  # model stride
-            self.imgsz = check_img_size(param.img_size, s=self.stride)  # check img_size
-
-            if self.device.type != 'cpu':
-                self.model(torch.zeros(1, 3, self.imgsz, self.imgsz).to(self.device).type_as(
-                    next(self.model.parameters())))  # run once
-
-            half = self.device.type != 'cpu'  # half precision only supported on CUDA
-            if half:
-                self.model.half()  # to FP16
-
+            # remove added path in pythonpath after loading model
             param.update = False
 
         # Call to the process main routine
@@ -232,6 +197,7 @@ class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
             self.infer(srcImage)
 
         self.setOutputColorMap(0, 1, [[0, 0, 0]] + self.colors)
+
         # Step progress bar:
         self.emitStepProgress()
 
@@ -250,7 +216,7 @@ class InferYoloV7InstanceSegmentationFactory(dataprocess.CTaskFactory):
         # Set process information as string here
         self.info.name = "infer_yolo_v7_instance_segmentation"
         self.info.shortDescription = "Inference for YOLO v7 instance segmentation models"
-        self.info.description = "Inference for YOLO v7 instance segmentation models"
+        self.info.description = "Inference for YOLO v7 instance segmentation models in .onnx format"
         # relative path -> as displayed in Ikomia application process tree
         self.info.path = "Plugins/Python/Instance Segmentation"
         self.info.iconPath = "icons/yolov7.png"
