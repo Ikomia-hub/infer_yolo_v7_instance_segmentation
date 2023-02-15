@@ -121,15 +121,15 @@ class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
         output_names = [x.name for x in self.session.get_outputs()]
 
         y = self.session.run(output_names, {self.session.get_inputs()[0].name: img})
-       
+
         pred, *others, proto = [torch.tensor(i, device="cpu") for i in y] # return to torch
         y = (pred, (others, proto))
 
         nm = pred.shape[-1] - 5 - len(self.classes)
 
         pred = non_max_suppression(pred, 
-                                   self.thr_conf,
-                                   self.iou_conf,
+                                   param.thr_conf,
+                                   param.iou_conf,
                                    None,
                                    False,
                                    max_det=100,
