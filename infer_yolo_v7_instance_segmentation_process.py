@@ -42,6 +42,7 @@ class InferYoloV7InstanceSegmentationParam(core.CWorkflowTaskParam):
         core.CWorkflowTaskParam.__init__(self)
         # Place default value initialization here
         self.weights = ""
+        self.imgsz = 640
         self.thr_conf = 0.25
         self.iou_conf = 0.5
         self.update = False
@@ -50,6 +51,7 @@ class InferYoloV7InstanceSegmentationParam(core.CWorkflowTaskParam):
         # Set parameters values from Ikomia application
         # Parameters values are stored as string and accessible like a python dict
         self.weights = str(param_map["weights"])
+        self.imgsz = int(param_map["imgsz"])
         self.thr_conf = float(param_map["thr_conf"])
         self.iou_conf = float(param_map["iou_conf"])
         self.update = True
@@ -59,6 +61,7 @@ class InferYoloV7InstanceSegmentationParam(core.CWorkflowTaskParam):
         # Create the specific dict structure (string container)
         param_map = core.ParamMap()
         param_map["weights"] = str(self.weights)
+        param_map["imgsz"] = str(self.imgsz)
         param_map["thr_conf"] = str(self.thr_conf)
         param_map["iou_conf"] = str(self.iou_conf)
         return param_map
@@ -80,7 +83,6 @@ class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
         self.device = torch.device("cpu")
         self.session = None
         self.stride = 32
-        self.imgsz = 640
         self.thr_conf = 0.25
         self.iou_conf = 0.45
         self.classes = None
@@ -107,7 +109,7 @@ class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
         # Padded resize
         h, w = np.shape(img0)[:2]
         img = cv2.cvtColor(img0, cv2.COLOR_BGR2RGB)
-        img, ratio, dwdh = letterbox_costum(img, auto=False)
+        img, ratio, dwdh = letterbox_costum(img, int(param.imgsz), auto=False)
 
         # Convert
         img = img.transpose(2, 0, 1)  # HxWxC, to CxHxW
@@ -119,7 +121,7 @@ class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
         output_names = [x.name for x in self.session.get_outputs()]
 
         y = self.session.run(output_names, {self.session.get_inputs()[0].name: img})
-
+       
         pred, *others, proto = [torch.tensor(i, device="cpu") for i in y] # return to torch
         y = (pred, (others, proto))
 

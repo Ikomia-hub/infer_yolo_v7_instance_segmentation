@@ -41,6 +41,11 @@ class InferYoloV7InstanceSegmentationWidget(core.CWorkflowTaskWidget):
 
         # Create layout : QGridLayout by default
         self.gridLayout = QGridLayout()
+        
+        #Confidence threshold
+        self.spin_imgsz = pyqtutils.append_double_spin(self.gridLayout, "Input size",
+                                                          self.parameters.imgsz,
+                                                          min=0., max=2000, step=32, decimals=2)
 
         #Confidence threshold
         self.spin_thr_conf = pyqtutils.append_double_spin(self.gridLayout, "Confidence threshold",
@@ -66,6 +71,7 @@ class InferYoloV7InstanceSegmentationWidget(core.CWorkflowTaskWidget):
     def onApply(self):
         # Get parameters from widget
         self.parameters.weights = self.browse_model.path
+        self.parameters.imgsz = self.spin_imgsz.value()
         self.parameters.iou_conf = self.spin_iou_conf.value()
         self.parameters.thr_conf = self.spin_thr_conf.value()
         self.parameters.update = True
