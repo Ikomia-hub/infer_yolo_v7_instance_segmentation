@@ -19,11 +19,11 @@
 from ikomia import utils, core, dataprocess
 import copy
 import os
-from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.general import check_img_size, non_max_suppression, \
+from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.general import non_max_suppression, \
     scale_coords
 from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.segment.general import scale_masks, \
     process_mask_upsample
-from infer_yolo_v7.ikutils import letterbox_costum
+from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.dataloaders import letterbox
 import torch
 import numpy as np
 import random
@@ -109,7 +109,7 @@ class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
         # Padded resize
         h, w = np.shape(img0)[:2]
         img = cv2.cvtColor(img0, cv2.COLOR_BGR2RGB)
-        img, ratio, dwdh = letterbox_costum(img, int(param.imgsz), auto=False)
+        img, ratio, dwdh = letterbox(img, int(param.imgsz))
 
         # Convert
         img = img.transpose(2, 0, 1)  # HxWxC, to CxHxW
@@ -127,14 +127,14 @@ class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
 
         nm = pred.shape[-1] - 5 - len(self.classes)
 
-        pred = non_max_suppression(pred, 
+        pred = non_max_suppression(pred,
                                    param.thr_conf,
                                    param.iou_conf,
                                    None,
                                    False,
                                    max_det=100,
                                    nm=nm)
-  
+
         for i, det in enumerate(pred):  # per image
             if len(det):
                 # Rescale boxes from img_size to im0 size

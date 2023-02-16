@@ -22,7 +22,6 @@ from infer_yolo_v7_instance_segmentation.infer_yolo_v7_instance_segmentation_pro
 
 # PyQt GUI framework
 from PyQt5.QtWidgets import *
-from infer_yolo_v7_instance_segmentation.ikutils import model_zoo
 
 
 # --------------------
@@ -41,13 +40,13 @@ class InferYoloV7InstanceSegmentationWidget(core.CWorkflowTaskWidget):
 
         # Create layout : QGridLayout by default
         self.gridLayout = QGridLayout()
-        
-        #Confidence threshold
+
+        # Image size
         self.spin_imgsz = pyqtutils.append_double_spin(self.gridLayout, "Input size",
                                                           self.parameters.imgsz,
                                                           min=0., max=2000, step=32, decimals=2)
 
-        #Confidence threshold
+        # Confidence threshold
         self.spin_thr_conf = pyqtutils.append_double_spin(self.gridLayout, "Confidence threshold",
                                                           self.parameters.thr_conf,
                                                           min=0., max=1., step=0.01, decimals=2)
@@ -60,7 +59,6 @@ class InferYoloV7InstanceSegmentationWidget(core.CWorkflowTaskWidget):
                                                 label="Model path (.onnx)",
                                                 path=self.parameters.weights,
                                                 mode=QFileDialog.ExistingFile)
-
 
         # PyQt -> Qt wrapping
         layout_ptr = qtconversion.PyQtToQt(self.gridLayout)
