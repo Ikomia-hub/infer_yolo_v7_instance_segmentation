@@ -30,8 +30,6 @@ from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.torch_utils import tor
 from infer_yolo_v7_instance_segmentation.yolov7.seg.utils.segment.general import process_mask, scale_masks, \
     process_mask_upsample
 import numpy as np
-import random
-import yaml
 
 
 # --------------------
@@ -52,7 +50,7 @@ class InferYoloV7InstanceSegmentationParam(core.CWorkflowTaskParam):
         self.custom_model = ""
         self.update = False
 
-    def setParamMap(self, param_map):
+    def set_values(self, param_map):
         # Set parameters values from Ikomia application
         # Parameters values are stored as string and accessible like a python dict
         self.img_size = int(param_map["img_size"])
@@ -64,17 +62,18 @@ class InferYoloV7InstanceSegmentationParam(core.CWorkflowTaskParam):
         self.custom_model = param_map["custom_model"]
         self.update = True
 
-    def getParamMap(self):
+    def get_values(self):
         # Send parameters values to Ikomia application
         # Create the specific dict structure (string container)
-        param_map = core.ParamMap()
-        param_map["custom_train"] = str(self.custom_train)
-        param_map["img_size"] = str(self.img_size)
-        param_map['pretrain_model'] = str(self.pretrain_model)
-        param_map["thr_conf"] = str(self.thr_conf)
-        param_map["iou_conf"] = str(self.iou_conf)
-        param_map["cuda"] = str(self.cuda)
-        param_map["custom_model"] = str(self.custom_model)
+        param_map = {
+            "custom_train": str(self.custom_train),
+            "img_size": str(self.img_size),
+            "pretrain_model": str(self.pretrain_model),
+            "thr_conf": str(self.thr_conf),
+            "iou_conf": str(self.iou_conf),
+            "cuda": str(self.cuda),
+            "custom_model": str(self.custom_model)
+        }
         return param_map
 
 
@@ -82,14 +81,10 @@ class InferYoloV7InstanceSegmentationParam(core.CWorkflowTaskParam):
 # - Class which implements the process
 # - Inherits PyCore.CWorkflowTask or derived from Ikomia API
 # --------------------
-class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
+class InferYoloV7InstanceSegmentation(dataprocess.CInstanceSegmentationTask):
 
     def __init__(self, name, param):
-        dataprocess.C2dImageTask.__init__(self, name)
-        # Add instance segmentation output
-        self.addOutput(dataprocess.CInstanceSegIO())
-
-        self.inst_seg_output = None
+        dataprocess.CInstanceSegmentationTask.__init__(self, name)
         self.model = None
         self.weights = ""
         self.device = torch.device("cpu")
@@ -98,15 +93,14 @@ class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
         self.thr_conf = 0.25
         self.iou_conf = 0.45
         self.classes = None
-        self.colors = None
 
         # Create parameters class
         if param is None:
-            self.setParam(InferYoloV7InstanceSegmentationParam())
+            self.set_param_object(InferYoloV7InstanceSegmentationParam())
         else:
-            self.setParam(copy.deepcopy(param))
+            self.set_param_object(copy.deepcopy(param))
 
-    def getProgressSteps(self):
+    def get_progress_steps(self):
         # Function returning the number of progress steps for this process
         # This is handled by the main progress bar of Ikomia application
         return 1
@@ -115,7 +109,6 @@ class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
         h, w = np.shape(img0)[:2]
         # Padded resize
         img = letterbox(img0, self.imgsz, stride=self.stride)[0]
-        in_size = img.shape
         # Convert
         img = img.transpose(2, 0, 1)  # HxWxC, to CxHxW
         img = np.ascontiguousarray(img)
@@ -134,7 +127,6 @@ class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
         for i, det in enumerate(pred):  # per image
             if len(det):
                 # Rescale boxes from img_size to im0 size
-
                 masks = process_mask_upsample(proto[i], det[:, 6:], det[:, :4], img.shape[-2:])  # HWC
                 masks = masks.permute(1, 2, 0).detach().cpu().numpy()
                 masks = scale_masks(img.shape[-2:], masks, img0.shape, ratio_pad=None)
@@ -153,30 +145,21 @@ class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
                     h_obj = float(h_obj) - y_obj
                     w_obj = float(w_obj) - x_obj
                     mask = mask.astype(dtype='uint8')
-                    self.inst_seg_output.addInstance((i + 1) * j, 0, cls, self.classes[cls], conf, x_obj, y_obj,
-                                                     w_obj, h_obj, mask,
-                                                     self.colors[cls])
+                    self.add_instance((i + 1) * j, 0, cls, conf, x_obj, y_obj, w_obj, h_obj, mask)
 
     def run(self):
         # Core function of your process
         # Call beginTaskRun for initialization
-        self.beginTaskRun()
+        self.begin_task_run()
 
         # Get input :
-        input = self.getInput(0)
+        img_input = self.get_input(0)
 
         # Get image from input/output (numpy array):
-        srcImage = input.getImage()
+        src_image = img_input.get_image()
 
-        # Get outputs :
-        self.inst_seg_output = self.getOutput(1)
-        h, w = np.shape(srcImage)[:2]
-        self.inst_seg_output.init("YoloV7", 0, w, h)
-
-        # Forward input image
-        self.forwardInputImage(0, 0)
         # Get parameters :
-        param = self.getParam()
+        param = self.get_param_object()
 
         if param.update or self.model is None:
             self.device = torch.device("cuda") if param.cuda else torch.device("cpu")
@@ -211,8 +194,6 @@ class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
 
                 self.model = attempt_load(self.weights, device=self.device, fuse=True)  # load FP32 model
                 self.classes = self.model.names
-            random.seed(0)
-            self.colors = [[random.randint(0, 255) for _ in range(3)] for _ in self.classes]
 
             self.stride = int(self.model.stride.max())  # model stride
             self.imgsz = check_img_size(param.img_size, s=self.stride)  # check img_size
@@ -225,18 +206,17 @@ class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
             if half:
                 self.model.half()  # to FP16
 
+            self.set_names(list(self.classes.values()))
             param.update = False
 
         # Call to the process main routine
         with torch.no_grad():
-            self.infer(srcImage)
+            self.infer(src_image)
 
-        self.setOutputColorMap(0, 1, [[0, 0, 0]] + self.colors)
         # Step progress bar:
-        self.emitStepProgress()
-
+        self.emit_step_progress()
         # Call endTaskRun to finalize process
-        self.endTaskRun()
+        self.end_task_run()
 
 
 # --------------------
@@ -249,11 +229,11 @@ class InferYoloV7InstanceSegmentationFactory(dataprocess.CTaskFactory):
         dataprocess.CTaskFactory.__init__(self)
         # Set process information as string here
         self.info.name = "infer_yolo_v7_instance_segmentation"
-        self.info.shortDescription = "Inference for YOLO v7 instance segmentation models"
+        self.info.short_description = "Inference for YOLO v7 instance segmentation models"
         self.info.description = "Inference for YOLO v7 instance segmentation models"
         # relative path -> as displayed in Ikomia application process tree
         self.info.path = "Plugins/Python/Instance Segmentation"
-        self.info.iconPath = "icons/yolov7.png"
+        self.info.icon_path = "icons/yolov7.png"
         self.info.version = "1.0.0"
         # self.info.iconPath = "your path to a specific icon"
         self.info.authors = "Wang, Chien-Yao and Bochkovskiy, Alexey and Liao, Hong-Yuan Mark"
@@ -262,7 +242,7 @@ class InferYoloV7InstanceSegmentationFactory(dataprocess.CTaskFactory):
         self.info.year = 2022
         self.info.license = "GPL-3.0"
         # URL of documentation
-        self.info.documentationLink = "https://github.com/WongKinYiu/yolov7/tree/u7/seg"
+        self.info.documentation_link = "https://github.com/WongKinYiu/yolov7/tree/u7/seg"
         # Code source repository
         self.info.repository = "https://github.com/WongKinYiu/yolov7/tree/u7/seg"
         # Keywords used for search
