@@ -30,6 +30,8 @@ import random
 import yaml
 import onnxruntime as ort
 import cv2
+import onnx
+import ast
 
 
 # --------------------
@@ -180,18 +182,21 @@ class InferYoloV7InstanceSegmentation(dataprocess.C2dImageTask):
         # Get parameters :
         param = self.getParam()
 
-        with open(self.coco_data) as f:
-            data = yaml.load(f, Loader=yaml.FullLoader)
-            names = data["names"]
-
         if param.update or self.session is None:
             self.device = torch.device("cpu")
             print("Will run on {}".format(self.device.type))
             self.session = ort.InferenceSession(param.weights, providers=self.providers)
+            onnx_model = onnx.load(param.weights)
+            if len(onnx_model.metadata_props) > 0:
+                names = ast.literal_eval(onnx_model.metadata_props[0].value)
+            else:
+                with open(self.coco_data) as f:
+                    data = yaml.load(f, Loader=yaml.FullLoader)
+                    names = data["names"]
+                    
             self.classes = names
             random.seed(0)
             self.colors = [[random.randint(0, 255) for _ in range(3)] for _ in self.classes]
-            # remove added path in pythonpath after loading model
             param.update = False
 
         # Call to the process main routine
