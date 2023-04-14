@@ -41,38 +41,41 @@ class InferYoloV7InstanceSegmentationParam(core.CWorkflowTaskParam):
     def __init__(self):
         core.CWorkflowTaskParam.__init__(self)
         # Place default value initialization here
-        self.img_size = 640
-        self.custom_train = False
-        self.pretrain_model = 'yolov7-seg'
+        self.model_name_or_path = ""
+        self.input_size = 640
+        self.use_custom_model = False
+        self.model_name = 'yolov7-seg'
         self.cuda = torch.cuda.is_available()
-        self.thr_conf = 0.25
-        self.iou_conf = 0.5
-        self.custom_model = ""
+        self.conf_thres = 0.25
+        self.iou_thres = 0.5
+        self.model_path = ""
         self.update = False
 
     def set_values(self, param_map):
         # Set parameters values from Ikomia application
         # Parameters values are stored as string and accessible like a python dict
-        self.img_size = int(param_map["img_size"])
-        self.custom_train = utils.strtobool(param_map["custom_train"])
-        self.pretrain_model = str(param_map["pretrain_model"])
+        self.model_name_or_path = str(param_map["model_name_or_path"])
+        self.input_size = int(param_map["input_size"])
+        self.use_custom_model = utils.strtobool(param_map["use_custom_model"])
+        self.model_name = str(param_map["model_name"])
         self.cuda = utils.strtobool(param_map["cuda"])
-        self.thr_conf = float(param_map["thr_conf"])
-        self.iou_conf = float(param_map["iou_conf"])
-        self.custom_model = param_map["custom_model"]
+        self.conf_thres = float(param_map["conf_thres"])
+        self.iou_thres = float(param_map["iou_thres"])
+        self.model_path = param_map["model_path"]
         self.update = True
 
     def get_values(self):
         # Send parameters values to Ikomia application
         # Create the specific dict structure (string container)
         param_map = {
-            "custom_train": str(self.custom_train),
-            "img_size": str(self.img_size),
-            "pretrain_model": str(self.pretrain_model),
-            "thr_conf": str(self.thr_conf),
-            "iou_conf": str(self.iou_conf),
+            "model_name_or_path": str(self.model_name_or_path),
+            "use_custom_model": str(self.use_custom_model),
+            "input_size": str(self.input_size),
+            "model_name": str(self.model_name),
+            "conf_thres": str(self.conf_thres),
+            "iou_thres": str(self.iou_thres),
             "cuda": str(self.cuda),
-            "custom_model": str(self.custom_model)
+            "model_path": str(self.model_path)
         }
         return param_map
 
@@ -90,8 +93,8 @@ class InferYoloV7InstanceSegmentation(dataprocess.CInstanceSegmentationTask):
         self.device = torch.device("cpu")
         self.stride = 32
         self.imgsz = 640
-        self.thr_conf = 0.25
-        self.iou_conf = 0.45
+        self.conf_thres = 0.25
+        self.iou_thres = 0.45
         self.classes = None
 
         # Create parameters class
@@ -122,7 +125,7 @@ class InferYoloV7InstanceSegmentation(dataprocess.CInstanceSegmentationTask):
         proto = out[1]
         # number of masks
         nm = pred.shape[-1] - 5 - len(self.classes)
-        pred = non_max_suppression(pred, self.thr_conf, self.iou_conf, None, False, max_det=100, nm=nm)
+        pred = non_max_suppression(pred, self.conf_thres, self.iou_thres, None, False, max_det=100, nm=nm)
 
         for i, det in enumerate(pred):  # per image
             if len(det):
@@ -163,12 +166,20 @@ class InferYoloV7InstanceSegmentation(dataprocess.CInstanceSegmentationTask):
 
         if param.update or self.model is None:
             self.device = torch.device("cuda") if param.cuda else torch.device("cpu")
-            self.iou_conf = param.iou_conf
-            self.thr_conf = param.thr_conf
+            self.iou_thres = param.iou_thres
+            self.conf_thres = param.conf_thres
             print("Will run on {}".format(self.device.type))
 
-            if param.custom_train:
-                ckpt = torch_load(param.custom_model, device=self.device)
+            if param.model_name_or_path != "":
+                if os.path.isfile(param.model_name_or_path):
+                    param.use_custom_model = True
+                    param.model_path = param.model_name_or_path
+                    print("file is path, use custom model")
+                else:
+                    param.model_name = param.model_name_or_path
+
+            if param.use_custom_model:
+                ckpt = torch_load(param.model_path, device=self.device)
                 # custom model trained with ikomia
                 if "yaml" in ckpt:
                     cfg = ckpt["yaml"]
@@ -181,22 +192,22 @@ class InferYoloV7InstanceSegmentation(dataprocess.CInstanceSegmentationTask):
                 # other
                 else:
                     del ckpt
-                    self.model = attempt_load(param.custom_model, device=self.device, fuse=True)  # load FP32 model
+                    self.model = attempt_load(param.model_path, device=self.device, fuse=True)  # load FP32 model
                     self.classes = self.model.names
             else:
                 weights_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "weights")
                 if not os.path.isdir(weights_folder):
                     os.mkdir(weights_folder)
 
-                self.weights = os.path.join(weights_folder, param.pretrain_model + '.pt')
+                self.weights = os.path.join(weights_folder, param.model_name + '.pt')
                 if not os.path.isfile(self.weights):
-                    download_model(param.pretrain_model, weights_folder)
+                    download_model(param.model_name, weights_folder)
 
                 self.model = attempt_load(self.weights, device=self.device, fuse=True)  # load FP32 model
                 self.classes = self.model.names
 
             self.stride = int(self.model.stride.max())  # model stride
-            self.imgsz = check_img_size(param.img_size, s=self.stride)  # check img_size
+            self.imgsz = check_img_size(param.input_size, s=self.stride)  # check img_size
 
             if self.device.type != 'cpu':
                 self.model(torch.zeros(1, 3, self.imgsz, self.imgsz).to(self.device).type_as(

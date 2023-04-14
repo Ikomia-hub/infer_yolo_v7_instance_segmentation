@@ -44,46 +44,46 @@ class InferYoloV7InstanceSegmentationWidget(core.CWorkflowTaskWidget):
 
         self.check_cuda = pyqtutils.append_check(self.grid_layout, "Cuda", self.parameters.cuda and is_available())
         self.check_cuda.setEnabled(is_available())
-        self.spin_img_size = pyqtutils.append_spin(self.grid_layout, "Image size", self.parameters.img_size)
-        self.spin_thr_conf = pyqtutils.append_double_spin(self.grid_layout, "Confidence threshold",
-                                                          self.parameters.thr_conf,
+        self.spin_input_size = pyqtutils.append_spin(self.grid_layout, "Image size", self.parameters.input_size)
+        self.spin_conf_thres = pyqtutils.append_double_spin(self.grid_layout, "Confidence threshold",
+                                                          self.parameters.conf_thres,
                                                           min=0., max=1., step=0.01, decimals=2)
-        self.spin_iou_conf = pyqtutils.append_double_spin(self.grid_layout, "Confidence IOU",
-                                                          self.parameters.iou_conf,
+        self.spin_iou_thres = pyqtutils.append_double_spin(self.grid_layout, "Confidence IOU",
+                                                          self.parameters.iou_thres,
                                                           min=0., max=1., step=0.01, decimals=2)
-        self.check_custom_train = pyqtutils.append_check(self.grid_layout, "Custom train",
-                                                         self.parameters.custom_train)
-        self.check_custom_train.stateChanged.connect(self.on_custom_train_changed)
-        self.combo_pretrain_model = pyqtutils.append_combo(self.grid_layout, "Model name")
+        self.check_use_custom_model = pyqtutils.append_check(self.grid_layout, "Custom train",
+                                                         self.parameters.use_custom_model)
+        self.check_use_custom_model.stateChanged.connect(self.on_use_custom_model_changed)
+        self.combo_model_name = pyqtutils.append_combo(self.grid_layout, "Model name")
 
         for name in model_zoo.keys():
-            self.combo_pretrain_model.addItem(name)
+            self.combo_model_name.addItem(name)
 
-        self.combo_pretrain_model.setCurrentText(self.parameters.pretrain_model)
-        self.combo_pretrain_model.setEnabled(not self.parameters.custom_train)
-        self.browse_custom_model = pyqtutils.append_browse_file(self.grid_layout, "Custom model",
-                                                                self.parameters.custom_model)
-        self.browse_custom_model.setEnabled(self.parameters.custom_train)
+        self.combo_model_name.setCurrentText(self.parameters.model_name)
+        self.combo_model_name.setEnabled(not self.parameters.use_custom_model)
+        self.browse_model_path = pyqtutils.append_browse_file(self.grid_layout, "Custom model",
+                                                                self.parameters.model_path)
+        self.browse_model_path.setEnabled(self.parameters.use_custom_model)
         # PyQt -> Qt wrapping
         layout_ptr = qtconversion.PyQtToQt(self.grid_layout)
 
         # Set widget layout
         self.set_layout(layout_ptr)
 
-    def on_custom_train_changed(self, name):
-        self.combo_pretrain_model.setEnabled(not self.check_custom_train.isChecked())
-        self.browse_custom_model.setEnabled(self.check_custom_train.isChecked())
+    def on_use_custom_model_changed(self, name):
+        self.combo_model_name.setEnabled(not self.check_use_custom_model.isChecked())
+        self.browse_model_path.setEnabled(self.check_use_custom_model.isChecked())
 
     def on_apply(self):
         # Apply button clicked slot
         # Get parameters from widget
         self.parameters.cuda = self.check_cuda.isChecked()
-        self.parameters.custom_train = self.check_custom_train.isChecked()
-        self.parameters.img_size = self.spin_img_size.value()
-        self.parameters.pretrain_model = self.combo_pretrain_model.currentText()
-        self.parameters.iou_conf = self.spin_iou_conf.value()
-        self.parameters.thr_conf = self.spin_thr_conf.value()
-        self.parameters.custom_model = self.browse_custom_model.path
+        self.parameters.use_custom_model = self.check_use_custom_model.isChecked()
+        self.parameters.input_size = self.spin_input_size.value()
+        self.parameters.model_name = self.combo_model_name.currentText()
+        self.parameters.iou_thres = self.spin_iou_thres.value()
+        self.parameters.conf_thres = self.spin_conf_thres.value()
+        self.parameters.model_path = self.browse_model_path.path
         self.parameters.update = True
         # Send signal to launch the process
         self.emit_apply(self.parameters)
