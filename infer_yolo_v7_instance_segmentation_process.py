@@ -170,11 +170,12 @@ class InferYoloV7InstanceSegmentation(dataprocess.CInstanceSegmentationTask):
             self.conf_thres = param.conf_thres
             print("Will run on {}".format(self.device.type))
 
+            if param.model_path != "":
+                param.use_custom_model = True
             if param.model_name_or_path != "":
                 if os.path.isfile(param.model_name_or_path):
                     param.use_custom_model = True
                     param.model_path = param.model_name_or_path
-                    print("file is path, use custom model")
                 else:
                     param.model_name = param.model_name_or_path
 
