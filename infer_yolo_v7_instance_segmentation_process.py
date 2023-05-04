@@ -138,7 +138,6 @@ class InferYoloV7InstanceSegmentation(dataprocess.CInstanceSegmentationTask):
                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], (h, w)).round()
 
                 det = det.detach().cpu().numpy()
-
                 for j, (mask, bbox_cls) in enumerate(zip(masks, det)):
                     cls = int(bbox_cls[5])
                     conf = float(bbox_cls[4])
@@ -148,7 +147,7 @@ class InferYoloV7InstanceSegmentation(dataprocess.CInstanceSegmentationTask):
                     h_obj = float(h_obj) - y_obj
                     w_obj = float(w_obj) - x_obj
                     mask = mask.astype(dtype='uint8')
-                    self.add_instance((i + 1) * j, 0, cls, conf, x_obj, y_obj, w_obj, h_obj, mask)
+                    self.add_object((i + 1) * j, 0, cls, conf, x_obj, y_obj, w_obj, h_obj, mask)
 
     def run(self):
         # Core function of your process
