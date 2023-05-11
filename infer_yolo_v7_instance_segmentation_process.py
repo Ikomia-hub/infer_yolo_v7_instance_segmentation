@@ -41,41 +41,38 @@ class InferYoloV7InstanceSegmentationParam(core.CWorkflowTaskParam):
     def __init__(self):
         core.CWorkflowTaskParam.__init__(self)
         # Place default value initialization here
-        self.model_name_or_path = ""
         self.input_size = 640
         self.use_custom_model = False
         self.model_name = 'yolov7-seg'
         self.cuda = torch.cuda.is_available()
         self.conf_thres = 0.25
         self.iou_thres = 0.5
-        self.model_path = ""
+        self.model_weight_file = ""
         self.update = False
 
     def set_values(self, param_map):
         # Set parameters values from Ikomia application
         # Parameters values are stored as string and accessible like a python dict
-        self.model_name_or_path = str(param_map["model_name_or_path"])
         self.input_size = int(param_map["input_size"])
         self.use_custom_model = utils.strtobool(param_map["use_custom_model"])
         self.model_name = str(param_map["model_name"])
         self.cuda = utils.strtobool(param_map["cuda"])
         self.conf_thres = float(param_map["conf_thres"])
         self.iou_thres = float(param_map["iou_thres"])
-        self.model_path = param_map["model_path"]
+        self.model_weight_file = param_map["model_weight_file"]
         self.update = True
 
     def get_values(self):
         # Send parameters values to Ikomia application
         # Create the specific dict structure (string container)
         param_map = {
-            "model_name_or_path": str(self.model_name_or_path),
             "use_custom_model": str(self.use_custom_model),
             "input_size": str(self.input_size),
             "model_name": str(self.model_name),
             "conf_thres": str(self.conf_thres),
             "iou_thres": str(self.iou_thres),
             "cuda": str(self.cuda),
-            "model_path": str(self.model_path)
+            "model_weight_file": str(self.model_weight_file)
         }
         return param_map
 
@@ -169,17 +166,11 @@ class InferYoloV7InstanceSegmentation(dataprocess.CInstanceSegmentationTask):
             self.conf_thres = param.conf_thres
             print("Will run on {}".format(self.device.type))
 
-            if param.model_path != "":
+            if param.model_weight_file != "":
                 param.use_custom_model = True
-            if param.model_name_or_path != "":
-                if os.path.isfile(param.model_name_or_path):
-                    param.use_custom_model = True
-                    param.model_path = param.model_name_or_path
-                else:
-                    param.model_name = param.model_name_or_path
 
             if param.use_custom_model:
-                ckpt = torch_load(param.model_path, device=self.device)
+                ckpt = torch_load(param.model_weight_file, device=self.device)
                 # custom model trained with ikomia
                 if "yaml" in ckpt:
                     cfg = ckpt["yaml"]
@@ -192,7 +183,7 @@ class InferYoloV7InstanceSegmentation(dataprocess.CInstanceSegmentationTask):
                 # other
                 else:
                     del ckpt
-                    self.model = attempt_load(param.model_path, device=self.device, fuse=True)  # load FP32 model
+                    self.model = attempt_load(param.model_weight_file, device=self.device, fuse=True)  # load FP32 model
                     self.classes = self.model.names
             else:
                 weights_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "weights")

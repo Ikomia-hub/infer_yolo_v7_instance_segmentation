@@ -62,7 +62,7 @@ class InferYoloV7InstanceSegmentationWidget(core.CWorkflowTaskWidget):
         self.combo_model_name.setCurrentText(self.parameters.model_name)
         self.combo_model_name.setEnabled(not self.parameters.use_custom_model)
         self.browse_model_path = pyqtutils.append_browse_file(self.grid_layout, "Custom model",
-                                                                self.parameters.model_path)
+                                                                self.parameters.model_weight_file)
         self.browse_model_path.setEnabled(self.parameters.use_custom_model)
         # PyQt -> Qt wrapping
         layout_ptr = qtconversion.PyQtToQt(self.grid_layout)
@@ -83,7 +83,7 @@ class InferYoloV7InstanceSegmentationWidget(core.CWorkflowTaskWidget):
         self.parameters.model_name = self.combo_model_name.currentText()
         self.parameters.iou_thres = self.spin_iou_thres.value()
         self.parameters.conf_thres = self.spin_conf_thres.value()
-        self.parameters.model_path = self.browse_model_path.path
+        self.parameters.model_weight_file = self.browse_model_path.path
         self.parameters.update = True
         # Send signal to launch the process
         self.emit_apply(self.parameters)
