@@ -161,7 +161,7 @@ class InferYoloV7InstanceSegmentation(dataprocess.CInstanceSegmentationTask):
         param = self.get_param_object()
 
         if param.update or self.model is None:
-            self.device = torch.device("cuda") if param.cuda else torch.device("cpu")
+            self.device = torch.device("cuda") if param.cuda and torch.cuda.is_available() else torch.device("cpu")
             self.iou_thres = param.iou_thres
             self.conf_thres = param.conf_thres
             print("Will run on {}".format(self.device.type))
