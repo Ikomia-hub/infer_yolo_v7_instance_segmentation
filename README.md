@@ -21,7 +21,7 @@
 
 Inference for YOLO v7 instance segmentation models.
 
-![MJ YOLOv7 pose estimation](https://raw.githubusercontent.com/Ikomia-hub/infer_yolo_v7_instance_segmentation/feat/new_readme/icons/output.jpg)
+![MJ YOLOv7 pose estimation](https://raw.githubusercontent.com/Ikomia-hub/infer_yolo_v7_instance_segmentation/main/icons/output.jpg)
 
 ## :rocket: Use with Ikomia API
 
