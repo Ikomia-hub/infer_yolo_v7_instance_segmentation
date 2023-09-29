@@ -249,6 +249,8 @@ class InferYoloV7InstanceSegmentationFactory(dataprocess.CTaskFactory):
         self.info.original_repository = "https://github.com/WongKinYiu/yolov7/tree/u7/seg"
         # Keywords used for search
         self.info.keywords = "yolo, instance, segmentation, coco"
+        self.info.algo_type = core.AlgoType.INFER
+        self.info.algo_tasks = "INSTANCE_SEGMENTATION"
 
     def create(self, param=None):
         # Create process object
