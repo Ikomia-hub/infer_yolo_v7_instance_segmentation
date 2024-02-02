@@ -1,10 +1,11 @@
 --find-links https://download.pytorch.org/whl/torch_stable.html
-torch==1.13.1+cu116; python_version >= "3.10"
-torchvision==0.14.1+cu116; python_version >= "3.10"
+torch==2.1.2+cu121; python_version >= "3.11"
+torchvision==0.16.2+cu121; python_version >= "3.11"
+torch==1.13.1+cu116; python_version == "3.10"
+torchvision==0.14.1+cu116; python_version == "3.10"
 torch==1.9.0+cu111; python_version < "3.10"
 torchvision==0.10.0+cu111; python_version < "3.10"
 
-
 scipy>=1.4.1
-protobuf<=3.20.1
+protobuf<=4.0.0
 seaborn==0.12.1
